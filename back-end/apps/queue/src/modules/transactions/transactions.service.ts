@@ -2,22 +2,22 @@ import { ContractQueuePayload } from '@shared/types/contract-payload.type';
 import { PrismaService } from '@shared/providers/prisma.service';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BlockchainService } from '@queue/providers/blockchain.service';
 import { ItemType, statusTree, TransactionStatus } from 'generated/prisma';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as Handlebars from 'handlebars';
 import puppeteer from 'puppeteer';
 import { ContractDto } from '@shared/dtos/contract.dto';
+import { PinataService } from '@queue/providers/pinata.service';
 
 @Injectable()
 export class TransactionsService {
   private staticUrl: string;
 
   constructor(
-    private readonly blockchainService: BlockchainService,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly pinata: PinataService,
   ) {
     this.staticUrl = this.configService.get<string>('STATIC_URL')!;
   }
@@ -41,13 +41,6 @@ export class TransactionsService {
     const endDateObj = this.parseDate(endDate);
 
     try {
-      const { tx, receipt } =
-        await this.blockchainService.recordContract(totalPrice);
-
-      if (!receipt || !tx.to) {
-        throw new Error('Giao dịch không thành công, vui lòng thử lại sau');
-      }
-
       await this.prisma.user.update({
         where: { id: userId },
         data: { fvtBalance: { decrement: totalPrice } },
@@ -116,10 +109,10 @@ export class TransactionsService {
       await this.prisma.transaction.update({
         where: { id: transactionId },
         data: {
-          transactionHash: tx.hash,
-          blockNumber: receipt.blockNumber,
-          fromAddress: tx.from,
-          toAddress: tx.to,
+          // transactionHash: tx.hash,
+          // blockNumber: receipt.blockNumber,
+          // fromAddress: tx.from,
+          // toAddress: tx.to,
           status: TransactionStatus.SUCCESS,
           details: detailsArr,
         },
@@ -193,6 +186,8 @@ export class TransactionsService {
     await page.screenshot({ path: imgPath as `${string}.png`, fullPage: true });
 
     await browser.close();
+
+    await this.pinata.uploadFile(imgPath, `${transactionId}.png`);
 
     await this.prisma.transaction.update({
       where: { id: transactionId },

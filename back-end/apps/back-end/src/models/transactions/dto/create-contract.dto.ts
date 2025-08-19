@@ -2,13 +2,10 @@ import { ContractDto } from '@shared/dtos/contract.dto';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsNumber,
   IsString,
-  IsUrl,
-  Matches,
   ValidateNested,
 } from 'class-validator';
 
